@@ -1,10 +1,15 @@
 import requests
 import os
 import json
+
+from aiogram.types import ContentTypes, ContentType, Message
+
 from auth_data import token_bot
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
+from PIL import Image
+from loader import dp
 
 bot = Bot(token=token_bot)
 dp = Dispatcher(bot)
@@ -24,7 +29,7 @@ async def get_user_data(message: types.Message):
 
         params = {
             'user_ids': id_name,
-            'fields': 'first_name,last_name,city,country,sex,relation,bdate,education,career',
+            'fields': 'first_name,last_name,city,country,sex,relation,bdate,universities,photo_200',
             'access_token': access_token,
             'v': '5.131'
         }
@@ -33,12 +38,15 @@ async def get_user_data(message: types.Message):
         response = requests.get(url, params=params)
         data = response.json()
 
-        # проверяем существует ли директория с id пользователя
-        if os.path.exists(f"{id_name}"):
+
+        # Check if the directory with the user's ID already exists
+        id_name = str(data["response"][0]["id"])
+        if os.path.exists(id_name):
             print("", end="")
         else:
             os.mkdir(id_name)
-        # сохраняем данные в json файл, чтобы видеть структуру
+
+        # Save the user's data in a JSON file for better visualization of the structure
         with open(f"{id_name}/{id_name}.json", "w", encoding="utf-8") as file:
             json.dump(data, file, indent=4, ensure_ascii=False)
 
@@ -51,8 +59,9 @@ async def get_user_data(message: types.Message):
         relation = user_info.get("relation")
         city = user_info.get("city", {}).get("title", "Не указан")
         country = user_info.get("country", {}).get("title", "Не указана")
-        education = user_info.get("education", "Не указано")
-        career = user_info.get("career", "Не указано")
+        universities = user_info.get("universities", [])
+        photo_url = user_info.get("photo_200")
+
 
         if gender == 1:
             gender = "Женский"
@@ -81,20 +90,13 @@ async def get_user_data(message: types.Message):
             relation = "Не указано"
 
         education_info = ""
-        if education:
-            for item in education:
-                school_name = item.get("school_name", "Не указано")
-                graduation_year = item.get("graduation_year", "Не указан")
-                education_info += f"Учебное заведение: {school_name}\n" \
-                                  f"Год окончания: {graduation_year}\n\n"
+        if universities:
+            for item in universities:
+                university_name = item.get("name", "Не указано")
+                graduation_year = item.get("graduation", "Не указан")
+                education_info += f" {university_name}\n" \
+                                  f"Год окончания: {graduation_year}"
 
-        career_info = ""
-        if career:
-            for item in career:
-                company_name = item.get("company", "Не указано")
-                position = item.get("position", "Не указана")
-                career_info += f"Место работы: {company_name}\n" \
-                               f"Должность: {position}\n\n"
 
         await message.answer(
             f"Имя пользователя: {first_name}\n"
@@ -104,8 +106,8 @@ async def get_user_data(message: types.Message):
             f"Семейное положение: {relation}\n"
             f"Город: {city}\n"
             f"Страна: {country}\n"
-            f"Место учебы:{education}"
-            f"Место работы:{career}"
+            f"Место учебы:{education_info}"
+
         )
         # Вывод данных пользователя в формате JSON
         # print(data)
@@ -113,6 +115,17 @@ async def get_user_data(message: types.Message):
 
     except Exception as e:
         await message.reply('Произошла ошибка: ' + str(e))
+#@dp.message_handler(content_types=ContentType.PHOTO)
+#async def send_photo_fille_id(message:Message):
+  #  await message.reply(message.photo[-1].file_id)
+
+#@dp.message_handler(text='/photo')
+#async def send_photo(message:Message):
+   # chat_id = message.from_user.id
+   # photo_url =
+   # await dp.bot.send_photo(chat_id=message.from_user.id,photo='')
+
+
 
 
 if __name__ == '__main__':

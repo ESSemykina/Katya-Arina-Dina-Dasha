@@ -1,9 +1,16 @@
 import json
 import os
 import requests
+from PIL import Image
 
 from auth_data import token
 
+def show_image(file_path):
+    try:
+        image = Image.open(file_path)
+        image.show()
+    except Exception as e:
+        print('Произошла ошибка:', e)
 
 def get_user_data(id_name):
 
@@ -12,13 +19,13 @@ def get_user_data(id_name):
     # Параметры запроса
     params = {
         'user_ids': id_name,
-        'fields': 'first_name,last_name,city,country,sex,relation,bdate,education,career,photo_200',
+        'fields': 'first_name,last_name,city,country,sex,relation,bdate,universities,photo_200',
         'access_token': access_token,
         'v': '5.131'
     }
     api_version = "5.131"
     # URL для запроса к VK API
-    url = f"https://api.vk.com/method/users.get?user_ids={id_name}&fields=education,career&access_token={access_token}&v={api_version}"
+    url = 'https://api.vk.com/method/users.get'
 
 
 
@@ -27,18 +34,19 @@ def get_user_data(id_name):
         response = requests.get(url, params=params)
         data = response.json()
 
-        # проверяем существует ли директория с id пользователя
-        if os.path.exists(f"{id_name}"):
+        # Check if the directory with the user's ID already exists
+        id_name = str(data["response"][0]["id"])
+        if os.path.exists(id_name):
             print("", end="")
         else:
             os.mkdir(id_name)
-        # сохраняем данные в json файл, чтобы видеть структуру
+
+        # Save the user's data in a JSON file for better visualization of the structure
         with open(f"{id_name}/{id_name}.json", "w", encoding="utf-8") as file:
             json.dump(data, file, indent=4, ensure_ascii=False)
 
-
         user_info = data["response"][0]
-       # id_name = user_info.get("id")
+        id_name = user_info.get("id")
 
         first_name = user_info.get("first_name", "Не указано")
         last_name = user_info.get("last_name", "Не указана")
@@ -47,8 +55,8 @@ def get_user_data(id_name):
         relation = user_info.get("relation")
         city = user_info.get("city", {}).get("title", "Не указан")
         country = user_info.get("country", {}).get("title", "Не указана")
-        education = user_info.get("education")
-        career = user_info.get("career")
+        universities = user_info.get("universities", [])
+        photo_url = user_info.get("photo_200")
 
         if gender == 1:
             gender = "Женский"
@@ -77,20 +85,21 @@ def get_user_data(id_name):
             relation = "Не указано"
 
         education_info = ""
-        if education:
-            for item in education:
-                school_name = item.get("name", "Не указано")
+        if universities:
+            for item in universities:
+                university_name = item.get("name", "Не указано")
                 graduation_year = item.get("graduation", "Не указан")
-                education_info += f"Учебное заведение: {school_name}\n" \
-                                  f"Год окончания: {graduation_year}\n\n"
+                education_info += f" {university_name}\n" \
+                                  f"Год окончания: {graduation_year}"
 
-        career_info = ""
-        if career:
-            for item in career:
-                company_name = item.get("company", "Не указано")
-                position = item.get("position", "Не указана")
-                career_info += f"Место работы: {company_name}\n" \
-                               f"Должность: {position}\n\n"
+        # После сохранения фото
+        if photo_url:
+            photo_response = requests.get(photo_url)
+            with open(f"{id_name}/{id_name}.jpg", "wb") as photo_file:
+                photo_file.write(photo_response.content)
+                #print("Фото пользователя сохранено")
+                show_image(f"{id_name}/{id_name}.jpg")
+
         print("Имя пользователя:", first_name)
         print("Фамилия пользователя:", last_name)
         print("Дата рождения:",bdate)
@@ -99,7 +108,6 @@ def get_user_data(id_name):
         print("Город:", city)
         print("Страна:", country)
         print("Место учебы:", education_info)
-        print("Место работы:", career_info)
 
         # Вывод данных пользователя в формате JSON
         #print(data)
