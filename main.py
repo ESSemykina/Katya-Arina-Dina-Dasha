@@ -1,16 +1,12 @@
 import json
 import os
 import requests
-from PIL import Image
+import sqlite3
+
 
 from auth_data import token
 
-def show_image(file_path):
-    try:
-        image = Image.open(file_path)
-        image.show()
-    except Exception as e:
-        print('Произошла ошибка:', e)
+
 
 def get_user_data(id_name):
 
@@ -45,6 +41,7 @@ def get_user_data(id_name):
         with open(f"{id_name}/{id_name}.json", "w", encoding="utf-8") as file:
             json.dump(data, file, indent=4, ensure_ascii=False)
 
+
         user_info = data["response"][0]
         id_name = user_info.get("id")
 
@@ -68,7 +65,7 @@ def get_user_data(id_name):
         if relation == 1:
             relation = "Не женат/Не замужем"
         if relation == 2:
-            relation = "Есть друг/ подруга"
+            relation = "В отношениях"
         if relation == 3:
             relation = "Помолвлен(а)"
         if relation == 4:
@@ -98,7 +95,26 @@ def get_user_data(id_name):
             with open(f"{id_name}/{id_name}.jpg", "wb") as photo_file:
                 photo_file.write(photo_response.content)
                 #print("Фото пользователя сохранено")
-                show_image(f"{id_name}/{id_name}.jpg")
+                print(photo_url)
+
+                # Сохраняем данные пользователя в базу данных SQLite3
+                conn = sqlite3.connect('vk_data.db')
+                cursor = conn.cursor()
+
+                # Создаем таблицу, если она не существует
+                cursor.execute('''CREATE TABLE IF NOT EXISTS users
+                                   (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    first_name TEXT,
+                                    last_name TEXT,
+                                    photo_url TEXT)''')
+
+                # Вставляем данные пользователя в таблицу
+                cursor.execute('''INSERT INTO users (first_name, last_name, photo_url)
+                                   VALUES (?, ?, ?)''', (first_name, last_name, photo_url))
+
+                # Сохраняем изменения и закрываем соединение с базой данных
+                conn.commit()
+                conn.close()
 
         print("Имя пользователя:", first_name)
         print("Фамилия пользователя:", last_name)
