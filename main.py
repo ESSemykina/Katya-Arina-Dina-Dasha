@@ -2,10 +2,10 @@ import json
 import os
 import requests
 import sqlite3
-
+import emoji
+import vk_api
 
 from auth_data import token
-
 
 
 def get_user_data(id_name):
@@ -15,7 +15,7 @@ def get_user_data(id_name):
     # Параметры запроса
     params = {
         'user_ids': id_name,
-        'fields': 'first_name,last_name,city,country,sex,relation,bdate,universities,photo_200',
+        'fields': 'first_name,last_name,city,country,sex,relation,bdate,universities,status_info,photo_200',
         'access_token': access_token,
         'v': '5.131'
     }
@@ -54,6 +54,15 @@ def get_user_data(id_name):
         country = user_info.get("country", {}).get("title", "Не указана")
         universities = user_info.get("universities", [])
         photo_url = user_info.get("photo_200")
+        # Запрос к API ВКонтакте
+        response = requests.get(
+            f"https://api.vk.com/method/users.get?user_ids={id_name}&fields=status&access_token={access_token}&v=5.131")
+
+        # Получение статуса пользователя
+        status = response.json()["response"][0]["status"]
+
+
+
 
         if gender == 1:
             gender = "Женский"
@@ -89,32 +98,25 @@ def get_user_data(id_name):
                 education_info += f" {university_name}\n" \
                                   f"Год окончания: {graduation_year}"
 
-        # После сохранения фото
-        if photo_url:
-            photo_response = requests.get(photo_url)
-            with open(f"{id_name}/{id_name}.jpg", "wb") as photo_file:
-                photo_file.write(photo_response.content)
-                #print("Фото пользователя сохранено")
-                print(photo_url)
 
-                # Сохраняем данные пользователя в базу данных SQLite3
-                conn = sqlite3.connect('vk_data.db')
-                cursor = conn.cursor()
+        # Сохраняем данные пользователя в базу данных SQLite3
+        conn = sqlite3.connect('vk_data.db')
+        cursor = conn.cursor()
 
-                # Создаем таблицу, если она не существует
-                cursor.execute('''CREATE TABLE IF NOT EXISTS users
-                                   (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    first_name TEXT,
-                                    last_name TEXT,
-                                    photo_url TEXT)''')
+        # Создаем таблицу, если она не существует
+        cursor.execute('''CREATE TABLE IF NOT EXISTS users
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            first_name TEXT,
+                            last_name TEXT,
+                            photo_url TEXT)''')
 
-                # Вставляем данные пользователя в таблицу
-                cursor.execute('''INSERT INTO users (first_name, last_name, photo_url)
-                                   VALUES (?, ?, ?)''', (first_name, last_name, photo_url))
+        # Вставляем данные пользователя в таблицу
+        cursor.execute('''INSERT INTO users (first_name, last_name, photo_url)
+                            VALUES (?, ?, ?)''', (first_name, last_name, photo_url))
 
-                # Сохраняем изменения и закрываем соединение с базой данных
-                conn.commit()
-                conn.close()
+        # Сохраняем изменения и закрываем соединение с базой данных
+        conn.commit()
+        conn.close()
 
         print("Имя пользователя:", first_name)
         print("Фамилия пользователя:", last_name)
@@ -124,7 +126,32 @@ def get_user_data(id_name):
         print("Город:", city)
         print("Страна:", country)
         print("Место учебы:", education_info)
+        print(photo_url)
 
+
+        # Проверка наличия эмодзи в статусе и вывод настроения
+        if status:
+            print("Настроения пользователя по статусу: ", end=" ")
+            if "😊" or "😀" or "😃" or "😄" or "😁" or "😇" or "🙂"  in status:
+                print("Пользователь счастлив")
+            if "😒" or "😞" or "😔" or "😟" or "☹" or "😣" or "😖"  in status:
+                print("Пользователь грустит")
+            if "🤮 " or "🤧" or "😷" or "🤒" or "🤕" in status:
+                print("Пользаватель болеет")
+            if "😠" or "😡" or "🤬" in status:
+                print("Пользователь зол")
+            if "😎"  in status:
+                print("Пользователь крут")
+            if "😴" or "🥱 "  in status:
+                print("Пользователь любит поспать ")
+            if "😢" or "😭" or "😰" or "😓" in status:
+                print("Пользаватель плачет")
+            if "❤" or " 😘" or "😍" or "💋" or "😚" or "🥰" in status:
+                print("У пользавателя любовное настроение")
+            else:
+                print("У пользователя нейтрольное настроение")
+        else:
+            print("У пользователя отсутсвует статус. Анализ невозможен.")
         # Вывод данных пользователя в формате JSON
         #print(data)
 

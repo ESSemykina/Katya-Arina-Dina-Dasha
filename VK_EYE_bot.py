@@ -1,15 +1,14 @@
 import requests
 import os
 import json
-
 from aiogram.types import ContentTypes, ContentType, Message
-
 from auth_data import token_bot
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
 from PIL import Image
-from loader import dp
+import emoji
+import vk_api
 
 bot = Bot(token=token_bot)
 dp = Dispatcher(bot)
@@ -29,7 +28,7 @@ async def get_user_data(message: types.Message):
 
         params = {
             'user_ids': id_name,
-            'fields': 'first_name,last_name,city,country,sex,relation,bdate,universities,photo_200',
+            'fields': 'first_name,last_name,city,country,sex,relation,bdate,universities,status_info,photo_200',
             'access_token': access_token,
             'v': '5.131'
         }
@@ -61,6 +60,13 @@ async def get_user_data(message: types.Message):
         country = user_info.get("country", {}).get("title", "Не указана")
         universities = user_info.get("universities", [])
         photo_url = user_info.get("photo_200")
+        # Запрос к API ВКонтакте
+        response = requests.get(
+            f"https://api.vk.com/method/users.get?user_ids={id_name}&fields=status&access_token={access_token}&v=5.131")
+
+        # Получение статуса пользователя
+        status = response.json()["response"][0]["status"]
+        # Запрос к API ВКонтакте
 
 
         if gender == 1:
@@ -97,6 +103,29 @@ async def get_user_data(message: types.Message):
                 education_info += f" {university_name}\n" \
                                   f"Год окончания: {graduation_year}"
 
+        # Проверка наличия эмодзи в статусе и вывод настроения
+        status_info= ""
+
+        if   "😀" in status or "😃" in status or "😄" in status or "😁" in status or "😇" in status or "🙂" in status:
+            status_info = "Пользователь счастлив"
+        elif "😒" in status or "😞" in status or "😔"in status or "😟" in status or "☹️" in status or  "😣" in status or "😖"  in status:
+            status_info = "Пользователь грустит"
+        elif "🤮 " in status or "🤧" in status  or "😷" in status or "🤒" in status or "🤕" in status:
+            status_info = "Пользователь болеет"
+        elif "😠"  in status or "😡" in status  or "🤬" in status:
+            status_info = "Пользователь зол"
+        elif "😎"  in status:
+            status_info = "Пользователь крут"
+        elif "😴" in status or "🥱 "  in status:
+            status_info = "Пользователь любит поспать"
+        elif "😢" in status or "😭" in status or "😰" in status or "😓" in status:
+            status_info = "Пользователь плачет"
+        elif "❤️" in status  or " 😘" in status or "😍" in status or "💋" in status or "😚" in status or "🥰" in status:
+            status_info = "У пользователя любовное настроение"
+        else:
+            status_info = "У пользователя нейтральное настроение"
+
+
 
         await message.answer(
             f"Имя пользователя: {first_name}\n"
@@ -106,7 +135,10 @@ async def get_user_data(message: types.Message):
             f"Семейное положение: {relation}\n"
             f"Город: {city}\n"
             f"Страна: {country}\n"
-            f"Место учебы:{education_info}"
+            f"Место учебы:{education_info}\n"
+            f"Статус пользователя:{status_info}\n"
+            f"{photo_url}"
+
 
         )
         # Вывод данных пользователя в формате JSON
@@ -115,15 +147,6 @@ async def get_user_data(message: types.Message):
 
     except Exception as e:
         await message.reply('Произошла ошибка: ' + str(e))
-#@dp.message_handler(content_types=ContentType.PHOTO)
-#async def send_photo_fille_id(message:Message):
-  #  await message.reply(message.photo[-1].file_id)
-
-#@dp.message_handler(text='/photo')
-#async def send_photo(message:Message):
-   # chat_id = message.from_user.id
-   # photo_url =
-   # await dp.bot.send_photo(chat_id=message.from_user.id,photo='')
 
 
 
